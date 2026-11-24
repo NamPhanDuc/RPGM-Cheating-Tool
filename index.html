@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPGM Cheat Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Top Bar -->
+        <header id="app-header" class="top-bar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="6" width="20" height="12" rx="4"></rect>
+                        <path d="M6 12h4"></path>
+                        <path d="M8 10v4"></path>
+                        <circle cx="15" cy="11" r="1"></circle>
+                        <circle cx="17.5" cy="13" r="1"></circle>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <div class="brand-title-row">
+                        <h1>RPGM Cheat Tool</h1>
+                        <span class="version-pill">MV / MZ</span>
+                    </div>
+                    <p class="tagline">Inject cheat overlay vào game RPG Maker chỉ với 1 click</p>
+                </div>
+            </div>
+
+            <div id="status-bar" class="status-pill">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span id="status-text">Sẵn sàng</span>
+            </div>
+        </header>
+
+        <!-- Warning banner when opened outside Electron -->
+        <div id="browser-warning" class="alert-banner hidden" role="alert">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span>Electron API không khả dụng. Hãy chạy ứng dụng bằng lệnh <code>npm start</code>.</span>
+        </div>
+
+        <!-- Main Workspace -->
+        <main id="app-main" class="workspace-grid">
+            <!-- Left Panel: Game Selector & Recents -->
+            <section id="step-select" class="panel selector-panel">
+                <div class="panel-header">
+                    <span class="panel-kicker">Bước 1</span>
+                    <h2>Chọn Game</h2>
+                </div>
+
+                <button id="btn-select-folder" class="folder-picker" type="button">
+                    <span class="folder-picker-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                        </svg>
+                    </span>
+                    <span class="folder-picker-title">Chọn thư mục game</span>
+                    <span class="folder-picker-hint">Chọn thư mục chứa <code>Game.exe</code> hoặc <code>index.html</code></span>
+                </button>
+
+                <div id="recent-folders-container" class="recent-section hidden">
+                    <div class="recent-header">
+                        <h3 class="recent-title">Game gần đây</h3>
+                        <button id="btn-clear-recents" class="text-btn" type="button">Xóa tất cả</button>
+                    </div>
+                    <div id="recent-folders-list" class="recent-list"></div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Game Inspector & Actions -->
+            <section class="panel inspector-panel">
+                <!-- Empty State (before selecting a game) -->
+                <div id="empty-game-state" class="empty-state">
+                    <div class="empty-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                            <polyline points="2 12 12 17 22 12"></polyline>
+                        </svg>
+                    </div>
+                    <h2>Chưa chọn game</h2>
+                    <p class="empty-desc">Chọn một thư mục game RPG Maker ở bên trái để xem thông tin và cài đặt Cheat Engine.</p>
+                    <ol class="quick-guide">
+                        <li>
+                            <span class="guide-num">1</span>
+                            <span>Chọn thư mục chứa game MV hoặc MZ</span>
+                        </li>
+                        <li>
+                            <span class="guide-num">2</span>
+                            <span>Nhấn <strong>Hack Game</strong> để inject công cụ</span>
+                        </li>
+                        <li>
+                            <span class="guide-num">3</span>
+                            <span>Mở game và nhấn <kbd>F</kbd> để mở bảng cheat</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Selected Game Details -->
+                <div id="step-info" class="game-inspector hidden">
+                    <div class="inspector-top">
+                        <div class="game-identity">
+                            <div class="game-badges">
+                                <span id="info-engine" class="badge badge-engine">RPG Maker</span>
+                                <span id="info-status" class="badge badge-status">Clean</span>
+                            </div>
+                            <h2 id="game-title" class="game-title">Tên Game</h2>
+                            <p id="game-path-display" class="game-path"></p>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-tile">
+                            <span class="stat-label">Maps</span>
+                            <span id="info-maps" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-label">Items</span>
+                            <span id="info-items" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-label">Weapons</span>
+                            <span id="info-weapons" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-tile">
+                            <span class="stat-label">Armors</span>
+                            <span id="info-armors" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Action Controls -->
+                <div id="step-action" class="action-section hidden">
+                    <div class="action-primary-row">
+                        <button id="btn-hack" class="btn btn-hack" type="button">
+                            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
+                            <span>Hack Game</span>
+                        </button>
+                        <button id="btn-play" class="btn btn-play" type="button">
+                            <svg class="btn-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                            </svg>
+                            <span>Chơi Game</span>
+                        </button>
+                    </div>
+
+                    <button id="btn-unhack" class="btn btn-unhack" type="button" disabled>
+                        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        <span>Gỡ Hack &amp; Khôi phục file gốc</span>
+                    </button>
+
+                    <div id="action-feedback" class="action-feedback hidden">
+                        <span id="action-feedback-text"></span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Hotkey Reference -->
+        <section id="hotkeys" class="panel hotkeys-panel">
+            <div class="hotkeys-header">
+                <h2>Phím tắt mặc định trong game</h2>
+                <span class="hotkeys-hint">Tùy chỉnh thêm tại menu Cài đặt trong game</span>
+            </div>
+            <div class="hotkey-grid">
+                <div class="hotkey-item">
+                    <kbd>F</kbd>
+                    <span>Bật / Tắt Panel</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>]</kbd>
+                    <span>Char Speed +</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>[</kbd>
+                    <span>Char Speed -</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>H</kbd>
+                    <span>No Walls</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>=</kbd>
+                    <span>Game Speed +</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>-</kbd>
+                    <span>Game Speed -</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>T</kbd>
+                    <span>Teleport Panel</span>
+                </div>
+                <div class="hotkey-item">
+                    <kbd>G</kbd>
+                    <span>Save Position</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer id="app-footer" class="app-footer">
+            <span>RPGM Cheat Tool v1.0</span>
+            <span class="footer-sep" aria-hidden="true">•</span>
+            <span>Hỗ trợ RPG Maker MV &amp; MZ</span>
+            <span class="footer-sep" aria-hidden="true">•</span>
+            <span>Chỉ dùng cho game offline</span>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
