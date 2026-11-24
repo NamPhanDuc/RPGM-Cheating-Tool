@@ -2,7 +2,7 @@
   "name": "rpgm-cheat-tool",
   "version": "1.0.0",
   "description": "Hack any RPG Maker MV/MZ game in 1 click",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win portable",
@@ -22,12 +22,8 @@
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "style.css",
-      "script.js",
-      "rpgm-cheat-engine.js"
+      "src/**/*",
+      "assets/**/*"
     ],
     "win": {
       "target": [

@@ -5,13 +5,12 @@ const fs = require('fs');
 let mainWindow;
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
+    const windowOptions = {
         width: 900,
         height: 750,
         minWidth: 600,
         minHeight: 500,
         title: 'RPGM Cheat Tool',
-        icon: path.join(__dirname, 'icon.png'),
         autoHideMenuBar: true,
         backgroundColor: '#0b0d13',
         webPreferences: {
@@ -19,9 +18,16 @@ function createWindow() {
             contextIsolation: true,
             nodeIntegration: false
         }
-    });
+    };
 
-    mainWindow.loadFile('index.html');
+    const iconPath = path.join(__dirname, '..', '..', 'assets', 'icon.png');
+    if (fs.existsSync(iconPath)) {
+        windowOptions.icon = iconPath;
+    }
+
+    mainWindow = new BrowserWindow(windowOptions);
+
+    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
 app.whenReady().then(createWindow);
@@ -151,7 +157,7 @@ ipcMain.handle('check-hacked', async (event, gamePath) => {
 
 // Hack game - inject cheat engine
 ipcMain.handle('hack-game', async (event, gamePath) => {
-    const cheatSrc = path.join(__dirname, 'rpgm-cheat-engine.js');
+    const cheatSrc = path.join(__dirname, '..', 'cheat-engine', 'rpgm-cheat-engine.js');
     const wwwPath = getWwwPath(gamePath);
     const mode = getInjectMode(gamePath);
 
@@ -188,9 +194,13 @@ ipcMain.handle('hack-game', async (event, gamePath) => {
         fs.copyFileSync(indexPath, backupPath);
     }
 
-    // 3. Inject script tag
+    // 3. Inject script tag (không phân biệt hoa/thường và có fallback nếu thiếu </body>)
     if (!indexContent.includes('rpgm-cheat-engine.js')) {
-        indexContent = indexContent.replace('</body>', `${scriptTag}\n</body>`);
+        if (/<\/body>/i.test(indexContent)) {
+            indexContent = indexContent.replace(/<\/body>/i, `${scriptTag}\n</body>`);
+        } else {
+            indexContent += `\n${scriptTag}\n`;
+        }
         fs.writeFileSync(indexPath, indexContent, 'utf8');
     }
 
@@ -222,10 +232,7 @@ ipcMain.handle('unhack-game', async (event, gamePath) => {
         fs.unlinkSync(backupPath);
     } else if (fs.existsSync(indexPath)) {
         let content = fs.readFileSync(indexPath, 'utf8');
-        content = content.replace('<script src="js/rpgm-cheat-engine.js"></script>\n', '');
-        content = content.replace('<script src="js/rpgm-cheat-engine.js"></script>', '');
-        content = content.replace('<script src="rpgm-cheat-engine.js"></script>\n', '');
-        content = content.replace('<script src="rpgm-cheat-engine.js"></script>', '');
+        content = content.replace(/<script\s+src=["'](?:js\/)?rpgm-cheat-engine\.js["']\s*><\/script>\r?\n?/gi, '');
         fs.writeFileSync(indexPath, content, 'utf8');
     }
 
@@ -354,6 +361,20 @@ async function injectViaCDP(port, cheatFilePath) {
     console.log('[CDP] Inject thành công vào', wsUrl);
 }
 
+// Tìm port TCP trống ngẫu nhiên để tránh xung đột port CDP cố định
+function getFreePort() {
+    return new Promise((resolve, reject) => {
+        const net = require('net');
+        const srv = net.createServer();
+        srv.unref();
+        srv.on('error', reject);
+        srv.listen(0, '127.0.0.1', () => {
+            const { port } = srv.address();
+            srv.close(() => resolve(port));
+        });
+    });
+}
+
 // Chơi game — hỗ trợ CDP inject cho bundled games
 ipcMain.handle('launch-game', async (event, gamePath) => {
     const { spawn } = require('child_process');
@@ -383,12 +404,13 @@ ipcMain.handle('launch-game', async (event, gamePath) => {
     const markerPath = getBundledMarkerPath(gamePath);
     const args = [];
     let cheatPath = null;
+    let debugPort = null;
 
     if (fs.existsSync(markerPath)) {
         cheatPath = fs.readFileSync(markerPath, 'utf8').trim();
         if (fs.existsSync(cheatPath)) {
-            // Mở debug port để CDP có thể kết nối sau
-            args.push('--remote-debugging-port=9222');
+            debugPort = await getFreePort();
+            args.push(`--remote-debugging-port=${debugPort}`);
         }
     }
 
@@ -396,8 +418,8 @@ ipcMain.handle('launch-game', async (event, gamePath) => {
     child.unref();
 
     // Inject cheat engine qua CDP (async — không block UI)
-    if (cheatPath && fs.existsSync(cheatPath)) {
-        injectViaCDP(9222, cheatPath).catch(e => console.error('[CDP inject error]', e));
+    if (cheatPath && debugPort && fs.existsSync(cheatPath)) {
+        injectViaCDP(debugPort, cheatPath).catch(e => console.error('[CDP inject error]', e));
     }
 
     return true;

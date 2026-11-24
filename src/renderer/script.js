@@ -8,7 +8,7 @@ const state = {
 };
 
 // DOM References
-let btnSelectFolder, btnHack, btnUnhack, btnPlay, btnClearRecents, browserWarning;
+let btnSelectFolder, btnHack, btnHackLabel, btnUnhack, btnPlay, btnClearRecents, browserWarning;
 let emptyGameState, stepInfo, stepAction;
 let elGameTitle, elGamePathDisplay, infoEngine, infoMaps, infoItems, infoWeapons, infoArmors, infoStatus;
 let actionFeedback, actionFeedbackText;
@@ -16,6 +16,7 @@ let actionFeedback, actionFeedbackText;
 document.addEventListener('DOMContentLoaded', () => {
     btnSelectFolder = document.getElementById('btn-select-folder');
     btnHack = document.getElementById('btn-hack');
+    btnHackLabel = document.getElementById('btn-hack-label');
     btnUnhack = document.getElementById('btn-unhack');
     btnPlay = document.getElementById('btn-play');
     btnClearRecents = document.getElementById('btn-clear-recents');
@@ -250,21 +251,34 @@ function updateStatusBadge() {
 }
 
 function updateActionButtons() {
-    btnHack.disabled = state.isHacked;
+    btnHack.disabled = false;
     btnUnhack.disabled = !state.isHacked;
+
+    if (state.isHacked) {
+        btnHack.classList.add('is-update');
+        if (btnHackLabel) btnHackLabel.textContent = 'Cập nhật Cheat';
+    } else {
+        btnHack.classList.remove('is-update');
+        if (btnHackLabel) btnHackLabel.textContent = 'Hack Game';
+    }
 }
 
-// Inject cheat vào game
+// Inject hoặc cập nhật cheat vào game
 async function hackGame() {
+    const isUpdating = state.isHacked;
     try {
-        setStatus('Đang hack game...', 'working');
+        setStatus(isUpdating ? 'Đang cập nhật Cheat Engine...' : 'Đang hack game...', 'working');
 
         await window.electronAPI.hackGame(state.gamePath);
 
         state.isHacked = true;
         updateActionButtons();
         updateStatusBadge();
-        setStatus('Hack thành công! Mở lại game (hoặc ấn F5) và nhấn F để mở panel.', 'success');
+        if (isUpdating) {
+            setStatus('Đã cập nhật Cheat Engine mới nhất! Mở lại game (hoặc ấn F5) để áp dụng.', 'success');
+        } else {
+            setStatus('Hack thành công! Mở lại game (hoặc ấn F5) và nhấn F để mở panel.', 'success');
+        }
     } catch (err) {
         setStatus('Lỗi: ' + err.message, 'error');
         console.error(err);

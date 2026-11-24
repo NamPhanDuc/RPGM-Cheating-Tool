@@ -64,12 +64,23 @@
     const PREFIX = computeGamePrefix();
     window.CE_PREFIX = PREFIX;
 
-    let savedKeybinds = JSON.parse(localStorage.getItem(PREFIX + 'keybinds'));
-    if (savedKeybinds && (savedKeybinds.togglePanel.key === 'F1' || (savedKeybinds.godMode && savedKeybinds.godMode.key === 'F2'))) {
+    function readStorageJson(storageKey, fallback) {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw === null || raw === undefined || raw === '') return fallback;
+            const parsed = JSON.parse(raw);
+            return parsed !== null && parsed !== undefined ? parsed : fallback;
+        } catch (e) {
+            return fallback;
+        }
+    }
+
+    let savedKeybinds = readStorageJson(PREFIX + 'keybinds', null);
+    if (savedKeybinds && (!savedKeybinds.togglePanel || savedKeybinds.togglePanel.key === 'F1' || (savedKeybinds.godMode && savedKeybinds.godMode.key === 'F2'))) {
         savedKeybinds = null;
     }
 
-    let savedState = JSON.parse(localStorage.getItem(PREFIX + 'state')) || {};
+    let savedState = readStorageJson(PREFIX + 'state', {});
 
     // State của Cheat Engine - hoàn toàn độc lập cho từng game
     window.CheatEngine = {
@@ -86,20 +97,20 @@
         autoSaveEnabled: savedState.autoSaveEnabled || false,
         autoSaveMinutes: savedState.autoSaveMinutes || 5,
         showFloatingTp: savedState.showFloatingTp !== undefined ? savedState.showFloatingTp : false,
-        pinnedVars: JSON.parse(localStorage.getItem(PREFIX + 'pinned-vars')) || [],
-        timeHack: JSON.parse(localStorage.getItem(PREFIX + 'time')) || { varId: 0, dayVarId: 0, minVal: 0, maxVal: 23, step: 1, autoReload: true, changeDay: true },
+        pinnedVars: readStorageJson(PREFIX + 'pinned-vars', []),
+        timeHack: readStorageJson(PREFIX + 'time', { varId: 0, dayVarId: 0, minVal: 0, maxVal: 23, step: 1, autoReload: true, changeDay: true }),
         visible: true,
         minimized: false,
         initialized: false,
-        togglesHidden: JSON.parse(localStorage.getItem(PREFIX + 'toggles-hidden')) || false,
+        togglesHidden: readStorageJson(PREFIX + 'toggles-hidden', false),
         keybinds: savedKeybinds || JSON.parse(JSON.stringify(defaultKeybinds)),
-        savedPositions: JSON.parse(localStorage.getItem(PREFIX + 'positions')) || [],
-        activeTags: JSON.parse(localStorage.getItem(PREFIX + 'active-tags')) || [],
-        allTags: JSON.parse(localStorage.getItem(PREFIX + 'all-tags')) || [],
+        savedPositions: readStorageJson(PREFIX + 'positions', []),
+        activeTags: readStorageJson(PREFIX + 'active-tags', []),
+        allTags: readStorageJson(PREFIX + 'all-tags', []),
         tagFilterMode: localStorage.getItem(PREFIX + 'tag-filter-mode') || 'OR',
-        macros: JSON.parse(localStorage.getItem(PREFIX + 'macros')) || [],
-        lastPos: JSON.parse(localStorage.getItem(PREFIX + 'lastpos')) || null,
-        panelRect: JSON.parse(localStorage.getItem(PREFIX + 'rect')) || { w: 340, h: null, x: 20, y: 20 }
+        macros: readStorageJson(PREFIX + 'macros', []),
+        lastPos: readStorageJson(PREFIX + 'lastpos', null),
+        panelRect: readStorageJson(PREFIX + 'rect', { w: 340, h: null, x: 20, y: 20 })
     };
     const CE = window.CheatEngine;
     if (!CE.keybinds.savePos) CE.keybinds.savePos = { key: 'KeyG', label: 'Save Position' };
@@ -3636,7 +3647,7 @@ function renderKeybinds() {
                 <button class="ce-keybind-btn ${isListening ? 'listening' : ''} ${!hasKey ? 'empty' : ''}" data-kb="${key}">
                     ${isListening ? 'Bấm phím...' : keyDisplay}
                 </button>
-                ${hasKey ? `<button class="ce-keybind-clear-btn" data-kb="${key}" title="Bỏ phím tắt">✕</button>` : ''}
+                ${hasKey && key !== 'togglePanel' ? `<button class="ce-keybind-clear-btn" data-kb="${key}" title="Bỏ phím tắt">✕</button>` : ''}
             </div>
         `;
         list.appendChild(row);
@@ -3660,6 +3671,10 @@ function renderKeybinds() {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
             const kbKey = this.dataset.kb;
+            if (kbKey === 'togglePanel') {
+                showToast('Không thể bỏ phím tắt Toggle Panel!', 'error');
+                return;
+            }
             setNewKeybind(kbKey, '');
             showToast(`Đã bỏ phím tắt cho ${CE.keybinds[kbKey].label}!`, 'info');
         });
@@ -3671,6 +3686,32 @@ function initKeybindingSystem() {
 }
 
 function setNewKeybind(kbKey, newCode) {
+    if (kbKey === 'togglePanel' && !newCode) {
+        window.ceListeningKey = null;
+        renderKeybinds();
+        showToast('Không thể bỏ phím tắt Toggle Panel!', 'error');
+        return;
+    }
+
+    let replacedLabels = [];
+    if (newCode) {
+        if (kbKey !== 'togglePanel' && CE.keybinds.togglePanel && CE.keybinds.togglePanel.key === newCode) {
+            window.ceListeningKey = null;
+            renderKeybinds();
+            showToast(`Phím [${keyCodeToLabel(newCode)}] đang dùng cho Toggle Panel! Hãy đổi Toggle Panel trước.`, 'error');
+            return;
+        }
+
+        Object.keys(CE.keybinds).forEach(otherKey => {
+            if (otherKey !== kbKey && CE.keybinds[otherKey] && CE.keybinds[otherKey].key === newCode) {
+                CE.keybinds[otherKey].key = '';
+                replacedLabels.push(CE.keybinds[otherKey].label);
+                const oldHkEl = document.getElementById(`ce-hotkey-${otherKey}`);
+                if (oldHkEl) oldHkEl.innerText = '';
+            }
+        });
+    }
+
     CE.keybinds[kbKey].key = newCode;
     try {
         localStorage.setItem(PREFIX + 'keybinds', JSON.stringify(CE.keybinds));
@@ -3694,7 +3735,8 @@ function setNewKeybind(kbKey, newCode) {
     }
 
     if (newCode) {
-        showToast(`Đã gán phím [${keyCodeToLabel(newCode)}] cho ${CE.keybinds[kbKey].label}!`, 'success');
+        const suffix = replacedLabels.length > 0 ? ` (đã gỡ khỏi: ${replacedLabels.join(', ')})` : '';
+        showToast(`Đã gán phím [${keyCodeToLabel(newCode)}] cho ${CE.keybinds[kbKey].label}${suffix}!`, 'success');
     }
 }
 
